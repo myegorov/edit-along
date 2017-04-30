@@ -1,0 +1,26 @@
+body {
+  background-color: #fff;
+  padding: 20px;
+}
+
+.content {
+  display: flex;
+}
+
+/* flexbox */
+#textarea {
+  padding: 10px;
+  min-width: 200px;
+  min-height: 500px;
+  word-break: break-all;
+  cursor: text;
+  background-color: #eff0f1;
+  border: 1px solid grey;
+  font-size: 24px;
+  font-family: Consolas,Menlo,Monaco,Lucida Console,Liberation Mono,DejaVu Sans Mono,Bitstream Vera Sans Mono,Courier New,monospace,sans-serif;
+  border-radius: 5px;
+  overflow:hidden;
+}
+
+#textarea:focus {outline:0;}
+

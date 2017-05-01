@@ -47,7 +47,7 @@ window.onload = function() {
       }
     }
     if (found) {
-      alert("found loc at node " + nodeIx + " relIx " + relIx);
+      // alert("found loc at node " + nodeIx + " relIx " + relIx);
       if (element.childNodes[nodeIx].nodeType == 3) {
         range.setStart(element.childNodes[nodeIx], relIx);
         range.setEnd(element.childNodes[nodeIx], relIx+1);

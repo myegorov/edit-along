@@ -1,3 +1,8 @@
+# TODO: can identify incoming connection via request.environ dict:
+# environ['REMOTE_ADDR']
+# environ['REMOTE_PORT']
+
+
 from bottle import Bottle, route, run, get, static_file, request, abort
 
 from gevent import monkey; monkey.patch_all()
@@ -5,7 +10,6 @@ from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket import WebSocketError
 
-from time import sleep #TODO: for testing only
 
 host = '127.0.0.1'
 port = 8080
@@ -30,6 +34,8 @@ def js(filepath):
 @route('/websocket')
 def socks():
     wsock = request.environ.get('wsgi.websocket')
+    # print("environ:", wsock.environ)
+
     if not wsock:
         abort(400, 'Expected websocket request...')
     while True:

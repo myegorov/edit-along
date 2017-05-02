@@ -1,0 +1,6 @@
+bottle==0.12.13
+gevent==1.2.1
+gevent-websocket==0.10.1
+greenlet==0.4.12
+six==1.10.0
+websocket-client==0.40.0

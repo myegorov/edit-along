@@ -1,71 +1,69 @@
-# TODO: can identify incoming connection via request.environ dict:
-# environ['REMOTE_ADDR']
-# environ['REMOTE_PORT']
+"""
+run with
+    python3 server.py -e <ENV>
+"""
 
 
-from bottle import Bottle, route, run, get, static_file, request, abort
+from bottle import Bottle, route, run, get, static_file, request, abort, redirect
 
 from gevent import monkey; monkey.patch_all()
 from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket import WebSocketError
 
+import ds
 
-## for Docker on domino.cs.rit.edu, use:
-## first verify external IP with
-# $ ip addr
-## then verify Docker's exposed IP with same command but within Docker container
-## expecting: 172.17.0.2
-## finally, run:
-# $ docker run -p 129.21.37.42:1070:1070 -it mey5634/diffsync:diffsynch_proj
-## then verify that domino.cs.rit.edu opened the IPv4 port:
-# $ netstat -nap | grep 1070
-## expected output:
-## tcp        0      0 129.21.37.42:1070       0.0.0.0:*               LISTEN      -
+import threading
+import argparse
+import conf
 
 
+# # @route('/w/<url:re:.+>')
+# @route('/')
+# def index():
+#     return static_file('index.html', root="../")
 
-# host = '172.17.0.2'
-# port = 1070
-host = '127.0.0.1'
-port = 1070
-# app = Bottle()
-
-# @app.route('/')
-@route('/')
-def index():
+@route('/w/<url:re:.+>')
+def doc(url):
+    # print(request.url)
+    # redirect('/')
     return static_file('index.html', root="../")
 
-# @app.get("/static/css/<filepath:re:.*\.css>")
 @get("/static/css/<filepath:re:.*\.css>")
 def css(filepath):
     return static_file(filepath, root="../static/css")
 
-# @app.get("/static/js/<filepath:re:.*\.js>")
 @get("/static/js/<filepath:re:.*\.js>")
 def js(filepath):
     return static_file(filepath, root="../static/js")
 
-# @app.route('/websocket')
-@route('/websocket')
-def socks():
+# @get("/w/<url:re:.+>")
+@get("/websocket/<url:re:.+>")
+def socks(url=None):
     wsock = request.environ.get('wsgi.websocket')
-    # print("environ:", wsock.environ)
 
     if not wsock:
         abort(400, 'Expected websocket request...')
-    while True:
-        try:
-            message = wsock.receive()
-            wsock.send('Your message was: %r' % message)
-        except WebSocketError:
-            break
+    else:
+        while True:
+            try:
+                message = wsock.receive()
+                porter = threading.Thread(target=ds.convey,
+                                        args=(wsock,message,url))
+                porter.start()
+            except WebSocketError:
+                break
 
+if __name__ == "__main__":
+    """Start a passive socket. Parse CLI arguments for environment."""
 
-run(host=host, port=port, reloader=True, server='gevent', 
-        debug=True, handler_class=WebSocketHandler)
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-e", type=str, default='TESTING', help="one of ['TESTING', 'PRODUCTION']")
+    args = parser.parse_args()
 
-# server = WSGIServer((host, port), app,
-#                     handler_class=WebSocketHandler)
-# print("access @ http://%s:%s/" %(host, port))
-# server.serve_forever()
+    env = args.e
+    host = conf.HOST[env]
+    port = conf.PORT[env]
+
+    run(host=host, port=port, reloader=True, server='gevent', 
+            debug=conf.DEBUG, handler_class=WebSocketHandler)

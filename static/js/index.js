@@ -3,7 +3,9 @@ window.onload = function() {
   // test websockets
   // for Docker instance on domino.cs.rit.edu, use:
   // let sock = new WebSocket("ws://129.21.37.42:1070/websocket");
-  let sock = new WebSocket("ws://localhost:1070/websocket");
+  // let sock = new WebSocket("ws://localhost:8080/websocket");
+  let sock = new WebSocket("ws://localhost:8080/websocket/"+window.location.pathname);
+  console.log("window.location.pathname: " + window.location.pathname);
 
   let textarea = document.getElementById('textarea');
   textarea.focus();

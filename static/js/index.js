@@ -1,7 +1,9 @@
 window.onload = function() {
 
   // test websockets
-  let sock = new WebSocket("ws://localhost:8080/websocket");
+  // for Docker instance on domino.cs.rit.edu, use:
+  // let sock = new WebSocket("ws://129.21.37.42:1070/websocket");
+  let sock = new WebSocket("ws://localhost:1070/websocket");
 
   let textarea = document.getElementById('textarea');
   textarea.focus();

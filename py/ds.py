@@ -10,11 +10,28 @@ from gevent.pywsgi import WSGIServer
 from geventwebsocket.handler import WebSocketHandler
 from geventwebsocket import WebSocketError
 
-import threading
-
 import diff_match_patch as dmp
 
-def convey(wsock, message, pathname=None):
+def conveyor_belt(consumer):
+    """ An entry point coroutine that adds socket requests to 
+    the consumer() coroutine.
+    """
+    try:
+        while True:
+            wsock, url = (yield)
+            message = wsock.receive()
+            next_step = consumer()
+            next(next_step)
+            next_step.send((wsock, url, message)) # shadowing consumer()
+
+    except WebSocketError:
+        wsock.close()
+    except GeneratorExit:
+        next_step.close()
+    except StopIteration:
+        return None
+
+def consumer():
 
     # TODO: can identify incoming connection via request.environ dict:
     # environ['REMOTE_ADDR']
@@ -22,9 +39,15 @@ def convey(wsock, message, pathname=None):
     # print("environ:", wsock.environ)
 
     try:
-        wsock.send('Your message was: %r' % message)
-        wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
-        wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
-        wsock.send('Your doc name is: %s' %(pathname))
+        while True:
+            wsock, url, message = (yield)
+            wsock.send('Your message was: %r' % message)
+            wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
+            wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
+            wsock.send('Your doc name is: %s' %(url))
     except WebSocketError:
         wsock.close()
+    except GeneratorExit:
+        return None
+    except StopIteration:
+        return None

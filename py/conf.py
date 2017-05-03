@@ -3,7 +3,6 @@ Server config
 """
 
 
-
 ## for Docker on domino.cs.rit.edu, use:
 ## first verify external IP with
 # $ ip addr
@@ -20,12 +19,12 @@ Server config
 DEBUG = True
 
 HOST = {
-        'TESTING': '127.0.0.1',
-        'PRODUCTION': '172.17.0.2'
+        'DEV': '127.0.0.1',
+        'PROD': '172.17.0.2'
        }
 
 PORT = {
-        'TESTING': 8080,
-        'PRODUCTION': 1070
+        'DEV': 8080,
+        'PROD': 1070
        }
 

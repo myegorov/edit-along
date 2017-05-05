@@ -1,15 +1,19 @@
 """
 Differential synchronization logic for server.
 """
-# TODO: edits actually may be a stack (array of string patches)!!!
+# TODO: think about purpose of catching/throwing exceptions
+# eliminate redundancy
+
+# TODO: edits actually could be made a stack (array of string patches)!!!
 # TODO: decide on whether to pass around diffs or patches?? diffs seems
 # safer on average, but patches more economical?? Currently shooting for
 # sending patches over network.
 #   'edits': [[0, 'Mac'], [1, 'intoshe'], \
 #             [0, 's had the original point and click '], \
 #             [-1, 'UI'], [1, 'interface'], [0, '.']],
-# or
-#   'edits': ["""@@ -1,11 +1,18 @@
+#
+# or THIS IS CURRENTLY USED:
+#   'edits': """@@ -1,11 +1,18 @@
               #  Mac
               # +intoshe
               # s had th
@@ -17,21 +21,48 @@ Differential synchronization logic for server.
               # ick
               # -UI
               # +interface
-              # ."""]
+              # ."""
 
 
 
 from geventwebsocket import WebSocketError
 import diff_match_patch as dmp
 import json
+from hashlib import md5
 
 # TODO: need to synchronize on this one?
-# {key=client_id <int>, val={server_shadow <{str,[int,int]}>, backup_shadow <{str, int}>}}
+# {key=client_id <str>, val={server_shadow <{str,[int,int]}>, backup_shadow <{str, int}>}}
 CLIENT_REC = {}
-# {key=doc_id<int>, val=server_text<str>}
+# {key=doc_id<str>, val=server_text<str>}
 SERVER_TEXT = {}
 
-diffy = dmp.diff_match_patch()
+# TODO: need to synchronize on this one?
+# [message0, ... , messagen]
+# Each message is a JSON dump of a dict such as this:
+# {
+#   'clock':[<CLIENT_CLOCK_USED>, <SERVER_CLOCK_USED>],
+#   'edits': "@@ -1,11 +1,18 @@\n Mac\n+intoshe\n s had th\n@@ -42,7 +42,14 @@\n ick \n-UI\n+interface\n .\n",
+#   'client_id': some_str # None on first handshake, hash of client-doc
+# }
+OUTGOING_QUEUE = []
+
+dmp_fuzzy = dmp.diff_match_patch(0.4) # fuzzy Match_Threshold
+dmp_exact = dmp.diff_match_patch(0.0) # specify Match_Threshold for perfect match
+
+def hash(string):
+    """Built-in hash() function returns different hashes on different
+    invocations of interpreter unless env variable PYTHONHASHSEED=0 is set.
+
+    Arguments:
+        string (str): some string identifying client-document combination,
+                        kept consistent from one session to another. 7 chars
+                        should be enough for the toy example.
+
+    Returns:
+        hash (str)
+    """
+    return md5(string.encode('utf-8')).hexdigest()[:7]
+
 
 def conveyor_belt(consumer):
     """ An entry point coroutine that adds socket requests to 
@@ -58,10 +89,8 @@ def consumer():
     and JSON-encoded edits (list of [int, str]), in the following format:
         {
           'clock':[<CLIENT_CLOCK>, <SERVER_CLOCK>], # negative on first handshake
-          'edits': [[0, 'Mac'], [1, 'intoshe'], \
-                    [0, 's had the original point and click '], \
-                    [-1, 'UI'], [1, 'interface'], [0, '.']],
-          'client_id': int # None on first handshake, hash of client-doc
+          'edits': '@@ -1,11 +1,18 @@\n Mac\n+intoshe\n s had th\n@@ -42,7 +42,14 @@\n ick \n-UI\n+interface\n .\n',
+          'client_id': str # None on first handshake, hash of client-doc
         }
 
     Consumer will route the task to the next coroutine:
@@ -82,7 +111,7 @@ def consumer():
             else:
                 rec = CLIENT_REC.get('client_id', None)
                 if rec and message.get('clock', [-1,-1]) == \
-                   rec['server_shadow'][1]:
+                   rec['server_shadow'].get('clock'):
                     next_step = patch()
                 elif rec:
                     next_step = manage_failure()
@@ -121,14 +150,14 @@ def onboard():
         CLIENT_REC[client_id] = {'server_shadow':server_shadow, 
                                 'backup_shadow':backup_shadow}
         # should be OK if edits are empty
-        edits = message.get('edits', ['']) # edits are a list of patch strings
+        edits = message.get('edits', '') # edits are a list of patch strings
 
         # move on now
         normal_ops = patch()
         next(normal_ops)
         normal_ops.send((wsock, url, {'clock':clock, 
-                                    'edits':edits,
-                                    'client_id':client_id}))
+                                      'edits':edits,
+                                      'client_id':client_id}))
 
     except WebSocketError:
         wsock.close()
@@ -141,34 +170,112 @@ def onboard():
 # TODO: normal operation (steps 5a onwards)
 def patch():
 
-    # # {key=client_id <int>, val={server_shadow <{str,[int,int]}>, backup_shadow <{str, int}>}}
-    # CLIENT_REC = {}
 
-    # # {key=doc_id<int>, val=server_text<str>}
+    # # TODO: need to synchronize on this one?
+    # # {key=client_id <str>, val={server_shadow <{str,[int,int]}>, backup_shadow <{str, int}>}}
+    # CLIENT_REC = {}
+    # # {key=doc_id<str>, val=server_text<str>}
     # SERVER_TEXT = {}
 
     # {
     #   'clock':[<CLIENT_CLOCK>, <SERVER_CLOCK>], # negative on first handshake
     #   'edits': "@@ -1,11 +1,18 @@\n Mac\n+intoshe\n s had th\n@@ -42,7 +42,14 @@\n ick \n-UI\n+interface\n .\n",
-    #   'client_id': int # None on first handshake, hash of client-doc
+    #   'client_id': some_str # None on first handshake, hash of client-doc
     # }
 
+    try:
+        wsock, url, message = (yield)
+        edit = message['edits']
+
+        # exact patch of Server Shadow
+        # also, snapshot Server Shadow into Backup Shadow
+        server_shadow = CLIENT_REC[message['client_id']]['server_shadow']
+        txt = server_shadow['text']
+        clock = server_shadow['clock']
+        txt_ =  dmp_exact.patch_apply(dmp_exact.patch_fromText(edit), txt)[0]
+        clock[0] += 1
+
+        # server_shadow_ = {'text':txt_, 'clock': clock[:]}
+        backup_shadow = {'text':txt_, 'server_clock':clock[1]}
+        # CLIENT_REC[message['client_id']] = \
+        #                         {'server_shadow':server_shadow_, 
+        #                         'backup_shadow':backup_shadow}
+
+        # fuzzy patch onto Server Text
+        doc_id = url.rstrip('/').split('/')[-1]
+        server_text = SERVER_TEXT[doc_id]
+        txt__ = dmp_fuzzy.patch_apply(dmp_fuzzy.patch_fromText(edit), server_text)[0]
+        SERVER_TEXT[doc_id] = txt__
+
+        # create diff -> patch off of Server Text and Server Shadow
+        delta = dmp_exact.diff_main(txt_, txt__) # old, new
+        patches = dmp_exact.patch_make(txt_, delta)
+        patch_txt = dmp_exact.patch_toText(patches)
+
+        # compose message and add to outgoing queue
+        msg_to_client = {'clock':clock[:], 
+                         'edits':patch_txt, 
+                         'client_id':  message['client_id']}
+        OUTGOING_QUEUE.append(json.dumps(msg_to_client))
+
+        # increment server clock and snapshot Server Text into Server Shadow
+        clock[1] += 1
+        server_shadow_ = {'text':txt__, 'clock': clock[:]}
+        CLIENT_REC[message['client_id']] = \
+                                {'server_shadow':server_shadow_, 
+                                'backup_shadow':backup_shadow}
+
+        # yield control to mailman coroutine
+        deliver = mailman()
+        next(deliver)
+        deliver.send(wsock)
+
+    except WebSocketError:
+        wsock.close()
+    except GeneratorExit:
+        return None
+    except StopIteration:
+        return None
 
 
-    wsock, url, message = (yield)
+
+def mailman():
+    """Deliver a message to client & discard the message. 
+    No need to keep message in outgoing queue, unlike with 
+    Client's outgoing queue."""
+
+    try:
+        wsock = (yield)
+        # shouldn't be here if queue empty, assert?
+        assert len(OUTGOING_QUEUE) > 0
+        wsock.send(OUTGOING_QUEUE.pop(0))
+
+    except WebSocketError:
+        wsock.close()
+    except GeneratorExit:
+        return None
+    except StopIteration:
+        return None
 
 
-    # edits = message.get('edits', None)
-    # if edits is not None:
-    #     server_text = diffy.patch_apply(diffy.patch_fromText(edits), '')
 
-
-    pass
 
 # TODO: address one of error scenarios
 def manage_failure():
-    wsock, url, message = (yield)
-    pass
+    try:
+        wsock, url, message = (yield)
+
+        #TODO: what follws are just dummy actions for testing, delete..
+        wsock.send('Your message was: FAILURE')
+        wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
+        wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
+        wsock.send('Your doc name is: %s' %(url))
+    except WebSocketError:
+        wsock.close()
+    except GeneratorExit:
+        return None
+    except StopIteration:
+        return None
 
 
 

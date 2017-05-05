@@ -38,7 +38,7 @@ class diff_match_patch:
   Also contains the behaviour settings.
   """
 
-  def __init__(self):
+  def __init__(self, match_threshold=0.5):
     """Inits a diff_match_patch object with default settings.
     Redefine these in your program to override the defaults.
     """
@@ -49,7 +49,7 @@ class diff_match_patch:
     self.Diff_EditCost = 4
     # At what point is no match declared (0.0 = perfection, 1.0 = very loose).
     # self.Match_Threshold = 0.5
-    self.Match_Threshold = 0.4
+    self.Match_Threshold = match_threshold
     # How far to search for a match (0 = exact location, 1000+ = broad match).
     # A match this many characters away from the expected location will add
     # 1.0 to the score (0.0 is a perfect match).

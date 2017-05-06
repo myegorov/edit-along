@@ -167,22 +167,8 @@ def onboard():
         return None
 
 
-# TODO: normal operation (steps 5a onwards)
 def patch():
-
-
-    # # TODO: need to synchronize on this one?
-    # # {key=client_id <str>, val={server_shadow <{str,[int,int]}>, backup_shadow <{str, int}>}}
-    # CLIENT_REC = {}
-    # # {key=doc_id<str>, val=server_text<str>}
-    # SERVER_TEXT = {}
-
-    # {
-    #   'clock':[<CLIENT_CLOCK>, <SERVER_CLOCK>], # negative on first handshake
-    #   'edits': "@@ -1,11 +1,18 @@\n Mac\n+intoshe\n s had th\n@@ -42,7 +42,14 @@\n ick \n-UI\n+interface\n .\n",
-    #   'client_id': some_str # None on first handshake, hash of client-doc
-    # }
-
+    """Normal operation (steps 5a onwards)."""
     try:
         wsock, url, message = (yield)
         edit = message['edits']
@@ -215,7 +201,7 @@ def patch():
         # compose message and add to outgoing queue
         msg_to_client = {'clock':clock[:], 
                          'edits':patch_txt, 
-                         'client_id':  message['client_id']}
+                         'client_id':message['client_id']}
         OUTGOING_QUEUE.append(json.dumps(msg_to_client))
 
         # increment server clock and snapshot Server Text into Server Shadow
@@ -260,16 +246,16 @@ def mailman():
 
 
 
-# TODO: address one of error scenarios
+# TODO: address error scenarios
 def manage_failure():
     try:
         wsock, url, message = (yield)
 
         #TODO: what follws are just dummy actions for testing, delete..
-        wsock.send('Your message was: FAILURE')
-        wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
-        wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
-        wsock.send('Your doc name is: %s' %(url))
+        wsock.send('FAILURE')
+        # wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
+        # wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
+        # wsock.send('Your doc name is: %s' %(url))
     except WebSocketError:
         wsock.close()
     except GeneratorExit:

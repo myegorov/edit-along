@@ -23,7 +23,7 @@ dmp_exact = dmp.diff_match_patch(0.0) # specify Match_Threshold for perfect matc
 delta = dmp_exact.diff_main('', 'asdf') # old, new
 patches = dmp_exact.patch_make('', delta)
 patch_txt = dmp_exact.patch_toText(patches)
-message = json.dumps({'clock':[-1,-1],'edits':patch_txt, 'client_id':None}) 
+message = json.dumps({'clock':[-1,-1],'edits':patch_txt, 'client_id':None }) 
 # message = json.dumps({'clock':[-1,-1],'edits':patch_txt, 'client_id':'10dbbbf'}) 
 
 # print("sending 'hello world'...")

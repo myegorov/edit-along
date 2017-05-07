@@ -54,6 +54,9 @@ def js(filepath):
 def socks(url=None):
     wsock = request.environ.get('wsgi.websocket')
 
+
+    # print ('got websocket request with signature:', request.environ)
+
     #TODO: set cookie on a client?
     # schmeditor = int(request.cookies.get('schmeditor', random.randint()))
     # response.set_cookie('schmeditor', str(schmeditor))

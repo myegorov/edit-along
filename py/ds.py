@@ -72,6 +72,12 @@ def conveyor_belt(consumer):
         while True:
             wsock, url = (yield)
             message = wsock.receive()
+            # if null message, ignore
+            if message is None:
+                # print('got null message, returning...')
+                return
+            # else:
+            #     print('forwarding message on to consumer()')
             next_step = consumer()
             next(next_step)
             next_step.send((wsock, url, message)) # shadowing consumer()
@@ -106,10 +112,11 @@ def consumer():
             wsock, url, message = (yield)
             # decode message
             message = json.loads(message)
-            if message.get('client_id', None) is None: # new client?
+            client_id = message.get('client_id', None)
+            if client_id is None: # new client?
                 next_step = onboard()
             else:
-                rec = CLIENT_REC.get('client_id', None)
+                rec = CLIENT_REC.get(client_id, None)
                 if rec and message.get('clock', [-1,-1]) == \
                    rec['server_shadow'].get('clock'):
                     next_step = patch()
@@ -135,7 +142,8 @@ def onboard():
         # get fresh client id (a hash on doc-client pair)
         doc_id = url.rstrip('/').split('/')[-1]
         ip = wsock.environ['REMOTE_ADDR']
-        client_id = hash(doc_id+ip)
+        port = wsock.environ['REMOTE_PORT'] # distinguish between clients on same host
+        client_id = hash(doc_id+ip+':'+port)
 
         # check if server_text exists for given doc_id
         # do the minimal setup, then on to normal operation
@@ -145,8 +153,12 @@ def onboard():
         clock = message.get('clock', None) # consistency check
         assert clock == [-1,-1], \
             "onboard() found inconsistent clock on handshake: %s" %message
-        server_shadow = {'text':server_text, 'clock': clock[:]} # initially [-1,-1]
-        backup_shadow = {'text':server_text, 'server_clock':clock[1]}
+        # server_shadow = {'text':server_text, 'clock': clock[:]} # initially [-1,-1]
+        # backup_shadow = {'text':server_text, 'server_clock':clock[1]}
+        # set up new shadow & backup copies per client connection
+        server_shadow = {'text':'', 'clock': clock[:]} # initially [-1,-1]
+        backup_shadow = {'text':'', 'server_clock':clock[1]}
+
         CLIENT_REC[client_id] = {'server_shadow':server_shadow, 
                                 'backup_shadow':backup_shadow}
         # should be OK if edits are empty
@@ -171,28 +183,38 @@ def patch():
     """Normal operation (steps 5a onwards)."""
     try:
         wsock, url, message = (yield)
+
+        # print(wsock.environ)
+        # print('echoing from within patch(): get message: %r' %message)
         edit = message['edits']
-
-        # exact patch of Server Shadow
-        # also, snapshot Server Shadow into Backup Shadow
-        server_shadow = CLIENT_REC[message['client_id']]['server_shadow']
-        txt = server_shadow['text']
-        clock = server_shadow['clock']
-        txt_ =  dmp_exact.patch_apply(dmp_exact.patch_fromText(edit), txt)[0]
-        clock[0] += 1
-
-        # server_shadow_ = {'text':txt_, 'clock': clock[:]}
-        backup_shadow = {'text':txt_, 'server_clock':clock[1]}
-        # CLIENT_REC[message['client_id']] = \
-        #                         {'server_shadow':server_shadow_, 
-        #                         'backup_shadow':backup_shadow}
-
-        # fuzzy patch onto Server Text
         doc_id = url.rstrip('/').split('/')[-1]
-        server_text = SERVER_TEXT[doc_id]
-        txt__ = dmp_fuzzy.patch_apply(dmp_fuzzy.patch_fromText(edit), server_text)[0]
-        SERVER_TEXT[doc_id] = txt__
 
+        # if new client is joining with existing doc_id
+        # client sends edits == ''; client should just
+        # get a copy of server text, __not__ overwrite server text.
+        server_text = SERVER_TEXT[doc_id]
+        server_shadow = CLIENT_REC[message['client_id']]['server_shadow']
+        clock = server_shadow['clock']
+        init = message.get('init', False) # is new client joining?
+        sync = message.get('sync', False) # is old cliend just querying for server updates?
+        txt_ = '' if init else server_shadow['text']
+        txt__ = server_text
+
+        backup_shadow = CLIENT_REC[message['client_id']]['backup_shadow']
+        if edit != '' and not (sync or init):
+            # exact patch of Server Shadow
+            # also, snapshot Server Shadow into Backup Shadow
+            txt = server_shadow['text']
+            txt_ =  dmp_exact.patch_apply(dmp_exact.patch_fromText(edit), txt)[0]
+
+            backup_shadow = {'text':txt_, 'server_clock':clock[1]}
+
+            # fuzzy patch onto Server Text
+            txt__ = dmp_fuzzy.patch_apply(dmp_fuzzy.patch_fromText(edit), server_text)[0]
+            SERVER_TEXT[doc_id] = txt__
+
+        # update client's clock record
+        clock[0] += 1
         # create diff -> patch off of Server Text and Server Shadow
         delta = dmp_exact.diff_main(txt_, txt__) # old, new
         patches = dmp_exact.patch_make(txt_, delta)
@@ -200,9 +222,10 @@ def patch():
 
         # compose message and add to outgoing queue
         msg_to_client = {'clock':clock[:], 
-                         'edits':patch_txt, 
-                         'client_id':message['client_id']}
+                        'edits':patch_txt, 
+                        'client_id':message['client_id']}
         OUTGOING_QUEUE.append(json.dumps(msg_to_client))
+        # print('returning: ', json.loads(OUTGOING_QUEUE[0]))
 
         # increment server clock and snapshot Server Text into Server Shadow
         clock[1] += 1

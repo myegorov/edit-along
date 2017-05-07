@@ -2,7 +2,7 @@
 var Conf = (function() {
   var host = {
     'dev' : '127.0.0.1',
-    'prod': '172.17.0.2'
+    'prod': '129.21.37.42'
   };
   var port = {
     'dev' : 8080,

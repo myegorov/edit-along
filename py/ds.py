@@ -258,6 +258,7 @@ def mailman():
         # shouldn't be here if queue empty, assert?
         assert len(OUTGOING_QUEUE) > 0
         wsock.send(OUTGOING_QUEUE.pop(0))
+        wsock.close()
 
     except WebSocketError:
         wsock.close()

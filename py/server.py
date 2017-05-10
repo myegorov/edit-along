@@ -75,6 +75,8 @@ def socks(url=None):
             task_queue.close()
         except WebSocketError:
             wsock.close()
+        finally:
+            wsock.close()
 
 @get("<url:re:.+>")
 def catch_all_route(url):

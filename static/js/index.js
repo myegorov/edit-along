@@ -1,17 +1,12 @@
 window.onload = function() {
-  var SYNC_INTERVAL = 1000; // diff every 1 sec?
+  // var SYNC_INTERVAL = 1000; // diff every 1 sec?
+  var SYNC_INTERVAL = 500; // diff every 0.5 sec?
 
   var dmp_exact = new diff_match_patch(0.0);
   var dmp_fuzzy = new diff_match_patch(0.4);
   var tab = Tabula;
   var client = Client;
 
-  // console.log('socket url: ' + client.sock());
-  // TODO: why instantiating websocket immediately sends a
-  // message? how to catch/ignore the handshake message?
-  // for now just ignoring null messages in ds.py
-  // var sock = new WebSocket(client.sock());
-  // TODO: synchronize client in case server text already exists
   (function initializeClientText() {
     // wait to take snapshots until we've established connection with server
     client.awaitResponse = true;

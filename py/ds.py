@@ -257,7 +257,9 @@ def mailman():
         wsock = (yield)
         # shouldn't be here if queue empty, assert?
         assert len(OUTGOING_QUEUE) > 0
-        wsock.send(OUTGOING_QUEUE.pop(0))
+        if wsock is not None:
+            wsock.send(OUTGOING_QUEUE.pop(0))
+        # presently not maintaining connection, left for the future...
         wsock.close()
 
     except WebSocketError:
@@ -276,7 +278,8 @@ def manage_failure():
         wsock, url, message = (yield)
 
         #TODO: what follws are just dummy actions for testing, delete..
-        wsock.send('FAILURE')
+        if wsock is not None:
+            wsock.send('FAILURE')
         # wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
         # wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
         # wsock.send('Your doc name is: %s' %(url))

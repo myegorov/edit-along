@@ -1,11 +1,15 @@
 window.onload = function() {
   // var SYNC_INTERVAL = 1000; // diff every 1 sec?
   var SYNC_INTERVAL = 500; // diff every 0.5 sec?
+  var CURSOR = '¶';
 
   var dmp_exact = new diff_match_patch(0.0);
   var dmp_fuzzy = new diff_match_patch(0.4);
+
+  // TODO: is there any need for tab.text.str??? isn't textarea enough??
   var tab = Tabula;
   var client = Client;
+
 
   (function initializeClientText() {
     // wait to take snapshots until we've established connection with server
@@ -141,21 +145,95 @@ window.onload = function() {
       tab.shadow.clock[1] += 1;
 
       /* apply fuzzy patch to Client Text */
-      // var stale_client_text = tab.text.str; 
-      tab.text.str = dmp_fuzzy.patch_apply(
-                            dmp_fuzzy.patch_fromText(msg.edits), tab.text.str)[0]
+      // TODO: working here below on cursors...
+      console.log('about to tweak cursor because of edits: ' + msg.edits);
+      var cursorPos = getCaretCharacterOffsetWithin(textarea); // int index
+      console.log('old cursor was at: ' + cursorPos);
+      var textSnapshot = textarea.innerText;
+      var textWithCursor = textSnapshot.slice(0,cursorPos) + CURSOR +
+                            textSnapshot.slice(cursorPos);
+      var updatedText = dmp_fuzzy.patch_apply(
+                            // dmp_fuzzy.patch_fromText(msg.edits), tab.text.str)[0]
+                            dmp_fuzzy.patch_fromText(msg.edits), textWithCursor)[0]
+      // now extract cursor char & reset cursor
+      var newCursorPos = updatedText.indexOf(CURSOR);
+      console.log('found cursor char at: ' + newCursorPos);
+      if (newCursorPos < 0) {newCursorPos = 
+                                Math.min(cursorPos, updatedText.length-1);
+      }
+      else {
+        updatedText = updatedText.slice(0,newCursorPos) + 
+                                updatedText.slice(newCursorPos+1);
+        newCursorPos = Math.min(newCursorPos, updatedText.length-1);
+      }
+      console.log('will set new cursor at: '+newCursorPos);
 
-      console.log('applied fuzzy patch to client text: ' + tab.text.str);
 
-      /* TODO: prettify edits in textarea  */
-      textarea.innerText = tab.text.str;
-      //TODO: switch from patches to diffs as the currency of exchange
-      //      since using diffs to display pretty html
-      // var delta = dmp_exact.diff_main(stale_client_text, tab.text.str, false);
-      // var html = dmp_fuzzy.diff_prettyHtml(delta)
-      // textarea.innerText = html;
+      console.log('applied fuzzy patch to client text: ' + updatedText);
+      tab.text.str = updatedText;
+      textarea.innerText = updatedText;
+      setCaretAt(textarea, newCursorPos);
     }
     client.awaitResponse = false;
   }
+
+
+  // utils for working with cursor
+  function getCaretCharacterOffsetWithin(element) {
+    var caretOffset = 0;
+    if (typeof window.getSelection != "undefined") {
+      var range = window.getSelection().getRangeAt(0);
+      var preCaretRange = range.cloneRange();
+      preCaretRange.selectNodeContents(element);
+      preCaretRange.setEnd(range.endContainer, range.endOffset);
+      caretOffset = preCaretRange.toString().length;
+    }
+    return caretOffset;
+  };
+
+  function setCaretAt(element, ix) {
+    element.focus();
+    var range = document.createRange();
+    var sel = window.getSelection();
+    var relIx = 0;
+    var nodeIx = 0;
+    var found = false;
+    var ln = 0;
+    // alert(element.innerHTML);
+    for (var i = 0; i < element.childNodes.length; i++) {
+      // alert(element.childNodes[i].nodeType);
+      if (element.childNodes[i].nodeType == 3) { // text node
+        ln = element.childNodes[i].length;
+      } else { // <br>
+        // ln = element.childNodes[i].innerText.length;
+        ln = 0;
+      }
+      if (ix >= ln) {
+        ix -= ln;
+        nodeIx += 1;
+      } else {
+        // nodeIx = i;
+        relIx = ix;
+        found = true;
+        break;
+      }
+      console.log('node: ' + nodeIx + ' relIx: ' + relIx + ' ix: ' + ix);
+    }
+    if (found) {
+      // // alert("found loc at node " + nodeIx + " relIx " + relIx);
+      // if (element.childNodes[nodeIx].nodeType == 3) {
+      //   range.setStart(element.childNodes[nodeIx], relIx);
+      //   range.setEnd(element.childNodes[nodeIx], relIx+1);
+      // } else {
+      //   range.setStart(element.childNodes[nodeIx].firstChild, relIx);
+      //   range.setEnd(element.childNodes[nodeIx].firstChild, relIx+1);
+      // }
+      range.setStart(element.childNodes[nodeIx], relIx);
+      range.collapse(true);
+      sel.removeAllRanges();
+      sel.addRange(range);
+      console.log('set new cursor at: ' + relIx);
+    }
+  };
 
 }

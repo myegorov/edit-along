@@ -17,6 +17,8 @@ import conf
 import argparse
 from random import choice
 from string import ascii_lowercase, digits
+import logging
+import datetime
 
 
 RAND_URL_LENGTH = 5
@@ -33,6 +35,7 @@ def strip_path():
 @get('/')
 def index():
     # create a random url
+    # logging.debug("%s GET /" %(str(datetime.datetime.now())))
     pth = '/w/'+''.join(choice(ascii_lowercase+digits) for i in range(RAND_URL_LENGTH))
     redirect(pth)
 
@@ -52,14 +55,8 @@ def js(filepath):
 
 @get("/websocket/<url:re:.+>")
 def socks(url=None):
+    logging.debug("%s /websocket/%s" %(str(datetime.datetime.now()), url))
     wsock = request.environ.get('wsgi.websocket')
-
-
-    # print ('got websocket request with signature:', request.environ)
-
-    #TODO: set cookie on a client?
-    # schmeditor = int(request.cookies.get('schmeditor', random.randint()))
-    # response.set_cookie('schmeditor', str(schmeditor))
 
     if not wsock:
         abort(400, 'Expected websocket request...')
@@ -85,6 +82,11 @@ def catch_all_route(url):
 
 if __name__ == "__main__":
     """Start a passive socket. Parse CLI arguments for environment."""
+
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format='%(message)s',
+    )
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", type=str, default='DEV', help="one of ['DEV', 'PROD']")

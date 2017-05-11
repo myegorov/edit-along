@@ -129,10 +129,12 @@ window.onload = function() {
     /* assert that clock matches Client Shadow */
     if (JSON.stringify(msg.clock) != JSON.stringify(tab.shadow.clock)) {
       console.log("message clock: " + msg.clock + "; shadow.clock: " + tab.shadow.clock);
-      throw new Error('Clocks out of sync!');
+      throw new Error('Clocks out of sync!'); // TODO: more elaborate error handling on client side...
     } else if (msg.edits === '') {
       // no changes on server
       // just update tab.shadow.clock
+      // as long as duplicate flag not set (server responding to duplicate message)
+      if (msg.duplicate) return;
       client.client_id = msg.client_id;
       tab.shadow.clock[1] += 1;
     } else {

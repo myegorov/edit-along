@@ -44,6 +44,10 @@ SERVER_TEXT = {}
 #   'edits': "@@ -1,11 +1,18 @@\n Mac\n+intoshe\n s had th\n@@ -42,7 +42,14 @@\n ick \n-UI\n+interface\n .\n",
 #   'client_id': some_str # None on first handshake, hash of client-doc
 # }
+INCOMING_QUEUE = [] # queue of out-of-order packets
+
+# TODO: make outgoing and incoming queues fields of
+# of CLIENT_REC, so they can be accessed per client
 OUTGOING_QUEUE = []
 
 dmp_fuzzy = dmp.diff_match_patch(0.4) # fuzzy Match_Threshold
@@ -256,8 +260,8 @@ def mailman():
     try:
         wsock = (yield)
         # shouldn't be here if queue empty, assert?
-        assert len(OUTGOING_QUEUE) > 0
-        if wsock is not None:
+        # assert len(OUTGOING_QUEUE) > 0
+        if wsock is not None and len(OUTGOING_QUEUE) > 0:
             wsock.send(OUTGOING_QUEUE.pop(0))
         # presently not maintaining connection, left for the future...
         wsock.close()
@@ -277,12 +281,98 @@ def manage_failure():
     try:
         wsock, url, message = (yield)
 
-        #TODO: what follws are just dummy actions for testing, delete..
-        if wsock is not None:
-            wsock.send('FAILURE')
-        # wsock.send('Your addr is: %s' %(wsock.environ['REMOTE_ADDR']))
-        # wsock.send('Your port is: %s' %(wsock.environ['REMOTE_PORT']))
-        # wsock.send('Your doc name is: %s' %(url))
+        clock_received = message.get('clock', None)
+        server_shadow = CLIENT_REC[message['client_id']]['server_shadow']
+        backup_shadow = CLIENT_REC[message['client_id']]['backup_shadow']
+        clock_shadow = server_shadow['clock']
+        clock_backup = backup_shadow['clock']
+        doc_id = url.rstrip('/').split('/')[-1]
+        server_text = SERVER_TEXT[doc_id]
+
+        # (1) duplicate packet
+        if clock_shadow[0] > clock_received[0]:
+            # compose message and add to outgoing queue
+            msg_to_client = {'clock':clock_stored[:], 
+                            'edits':'',
+                            'client_id':message['client_id'],
+                            'duplicate':True}
+            OUTGOING_QUEUE.append(json.dumps(msg_to_client))
+
+            # yield control to mailman coroutine
+            deliver = mailman()
+            next(deliver)
+            deliver.send(wsock)
+        # (2) lost on return: client never received msg from server
+        elif clock_backup[1] == clock_received[1] and \
+                clock_shadow[1] > clock_received[1] and \
+                clock_shadow[0] == clock_received[0]:
+
+            # TODO: should check if outgoing queue contains delayed
+            # message -> if so, delete it!
+
+            # restore server shadow, update client's clock
+            clock_reset = [clock_received[0]+1, clock_backup[1]]
+
+            txt = backup_shadow['text']
+
+            # now compute and transmit a fresh diff to the client
+            # create diff -> patch off of Server Text and reset Server Shadow
+            delta = dmp_exact.diff_main(txt, server_text) # old, new
+            patches = dmp_exact.patch_make(txt, delta)
+            patch_txt = dmp_exact.patch_toText(patches)
+
+            # compose message and add to outgoing queue
+            msg_to_client = {'clock':clock_reset[:], 
+                             'edits':patch_txt, 
+                             'client_id':message['client_id'],
+                             'lost_return':True}
+            OUTGOING_QUEUE.append(json.dumps(msg_to_client))
+
+            # increment server clock and snapshot Server Text into Server Shadow
+            # no updates to backup shadow in this scenario
+            clock_reset[1] += 1
+            updated_server_shadow = {'text':server_text, 'clock': clock_reset[:]}
+            CLIENT_REC[message['client_id']]['server_shadow'] = \
+                    updated_server_shadow
+
+            # yield control to mailman coroutine
+            deliver = mailman()
+            next(deliver)
+            deliver.send(wsock)
+
+        # TODO: (3) other failure scenarios, ditto on client side
+        # for now just force reinitialization of client's data
+        # meaning data loss for client...
+        else:
+            reset = True
+
+            # now compute and transmit a fresh diff to the client
+            # create diff -> patch off of Server Text and reset Server Shadow
+            txt = backup_shadow['text']
+            delta = dmp_exact.diff_main(txt, server_text) # old, new
+            patches = dmp_exact.patch_make(txt, delta)
+            patch_txt = dmp_exact.patch_toText(patches)
+
+            # compose message and add to outgoing queue
+            msg_to_client = {'clock':clock_shadow[:], 
+                             'edits':patch_txt, 
+                             'client_id':message['client_id'],
+                             'reset':True}
+            OUTGOING_QUEUE.append(json.dumps(msg_to_client))
+
+            # increment server clock and snapshot Server Text into Server Shadow
+            # no updates to backup shadow in this scenario
+            clock_shadow[1] += 1
+            updated_server_shadow = {'text':server_text, 'clock': clock_shadow[:]}
+            CLIENT_REC[message['client_id']]['server_shadow'] = \
+                    updated_server_shadow
+
+            # yield control to mailman coroutine
+            deliver = mailman()
+            next(deliver)
+            deliver.send(wsock)
+
+
     except WebSocketError:
         wsock.close()
     except GeneratorExit:

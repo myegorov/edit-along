@@ -10,8 +10,8 @@ body {
 /* flexbox */
 #textarea {
   padding: 10px;
-  min-width: 200px;
-  min-height: 500px;
+  width: 100%;
+  height: 100%;
   word-break: break-all;
   cursor: text;
   background-color: #eff0f1;

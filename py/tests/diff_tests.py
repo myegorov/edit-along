@@ -195,3 +195,19 @@ new_doc = diff.patch_apply(diff.patch_fromText(''), "asdf") # what if empty patc
 print("empty patch applied to asdf:", new_doc) # looks like a bug?
 
 print(diff.patch_toText(diff.patch_make('',diff.diff_main('', ''))))
+
+### TODO: presentation
+
+dmp_fuzzy = dmp.diff_match_patch(0.4) # fuzzy Match_Threshold
+
+oo = "The mouse saw the cat on the mat with the hat." 
+client = "The mouse saw the cat on the mat with the jet."
+server = "The dog sat on the jet."
+
+delta = diff.diff_main(client, server)
+patches = diff.patch_make(client, delta)
+patch_txt = diff.patch_toText(patches)
+print (patch_txt)
+
+client_patched = dmp_fuzzy.patch_apply(dmp_fuzzy.patch_fromText(patch_txt), client)
+print('patched client:', client_patched)

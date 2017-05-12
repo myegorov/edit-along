@@ -224,6 +224,8 @@ def patch():
         patches = dmp_exact.patch_make(txt_, delta)
         patch_txt = dmp_exact.patch_toText(patches)
 
+
+
         # compose message and add to outgoing queue
         msg_to_client = {'clock':clock[:], 
                         'edits':patch_txt, 
@@ -285,14 +287,14 @@ def manage_failure():
         server_shadow = CLIENT_REC[message['client_id']]['server_shadow']
         backup_shadow = CLIENT_REC[message['client_id']]['backup_shadow']
         clock_shadow = server_shadow['clock']
-        clock_backup = backup_shadow['clock']
+        clock_backup = backup_shadow['server_clock']
         doc_id = url.rstrip('/').split('/')[-1]
         server_text = SERVER_TEXT[doc_id]
 
         # (1) duplicate packet
         if clock_shadow[0] > clock_received[0]:
             # compose message and add to outgoing queue
-            msg_to_client = {'clock':clock_stored[:], 
+            msg_to_client = {'clock':clock_shadow[:], 
                             'edits':'',
                             'client_id':message['client_id'],
                             'duplicate':True}
@@ -303,15 +305,15 @@ def manage_failure():
             next(deliver)
             deliver.send(wsock)
         # (2) lost on return: client never received msg from server
-        elif clock_backup[1] == clock_received[1] and \
-                clock_shadow[1] > clock_received[1] and \
-                clock_shadow[0] == clock_received[0]:
+        elif clock_backup == clock_received[1] and \
+            clock_shadow[1] > clock_received[1] and \
+            clock_shadow[0] == clock_received[0]:
 
             # TODO: should check if outgoing queue contains delayed
             # message -> if so, delete it!
 
             # restore server shadow, update client's clock
-            clock_reset = [clock_received[0]+1, clock_backup[1]]
+            clock_reset = [clock_received[0]+1, clock_backup]
 
             txt = backup_shadow['text']
 
@@ -348,7 +350,7 @@ def manage_failure():
 
             # now compute and transmit a fresh diff to the client
             # create diff -> patch off of Server Text and reset Server Shadow
-            txt = backup_shadow['text']
+            txt = '' # as if client is joining TODO in the future merge this logic with onboard()
             delta = dmp_exact.diff_main(txt, server_text) # old, new
             patches = dmp_exact.patch_make(txt, delta)
             patch_txt = dmp_exact.patch_toText(patches)

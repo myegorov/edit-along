@@ -55,7 +55,7 @@ def js(filepath):
 
 @get("/websocket/<url:re:.+>")
 def socks(url=None):
-    logging.debug("%s /websocket/%s" %(str(datetime.datetime.now()), url))
+    # logging.debug("%s /websocket/%s" %(str(datetime.datetime.now()), url))
     wsock = request.environ.get('wsgi.websocket')
 
     if not wsock:
@@ -83,10 +83,10 @@ def catch_all_route(url):
 if __name__ == "__main__":
     """Start a passive socket. Parse CLI arguments for environment."""
 
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format='%(message)s',
-    )
+    # logging.basicConfig(
+    #     level=logging.DEBUG,
+    #     format='%(message)s',
+    # )
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", type=str, default='DEV', help="one of ['DEV', 'PROD']")

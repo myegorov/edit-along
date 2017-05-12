@@ -1,5 +1,5 @@
 window.onload = function() {
-  var SYNC_INTERVAL = 500; // diff every 1 sec?
+  var SYNC_INTERVAL = 500; // diff every 0.5 sec?
   var CURSOR = '¶';
 
   var dmp_exact = new diff_match_patch(0.0);
@@ -27,10 +27,10 @@ window.onload = function() {
       /* update Client's clock */
       tab.shadow.clock[0] += 1;
 
-      console.log('packet sent' + JSON.stringify(msg_to_server));
+      // console.log('packet sent' + JSON.stringify(msg_to_server));
 
       sock.onmessage = function(evt) {
-        console.log('got mesage: ' + evt.data);
+        // console.log('got mesage: ' + evt.data);
         patchClient(evt);
         sock.close();
       };
@@ -67,11 +67,11 @@ window.onload = function() {
       var sock = new WebSocket(client.sock());
       sock.onopen = function() {
         let packet = outgoing_queue.shift();
-        console.log('sending packet...' + JSON.stringify(packet));
+        // console.log('sending packet...' + JSON.stringify(packet));
         sock.send(packet);
 
         sock.onmessage = function(evt) {
-          console.log('got mesage: ' + evt.data);
+          // console.log('got mesage: ' + evt.data);
           patchClient(evt);
           sock.close();
         };
@@ -128,7 +128,7 @@ window.onload = function() {
 
     /* assert that clock matches Client Shadow */
     if (JSON.stringify(msg.clock) != JSON.stringify(tab.shadow.clock)) {
-      console.log("message clock: " + msg.clock + "; shadow.clock: " + tab.shadow.clock);
+      // console.log("message clock: " + msg.clock + "; shadow.clock: " + tab.shadow.clock);
       throw new Error('Clocks out of sync!'); // TODO: more elaborate error handling on client side...
     } else if (msg.edits === '') {
       // no changes on server
@@ -143,7 +143,7 @@ window.onload = function() {
       client.client_id = msg.client_id;
       tab.shadow.str = dmp_exact.patch_apply(
                             dmp_exact.patch_fromText(msg.edits), tab.shadow.str)[0]
-      console.log('applied exact patch to client shadow: ' + tab.shadow.str);
+      // console.log('applied exact patch to client shadow: ' + tab.shadow.str);
       tab.shadow.clock[1] += 1;
 
       /* apply fuzzy patch to Client Text */

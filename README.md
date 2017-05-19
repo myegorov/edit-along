@@ -27,3 +27,13 @@ cd ./py && python3 server.py
 
 Open a browser and visit [http://localhost:8080/](http://localhost:8080/).
 Copy/paste the generated url in a new tab or two.
+
+Alternatively, fetch the Docker container, update
+`conf.py` and `conf.js` with exposed ip and port 
+(e.g. from `ip addr` command), and deploy, as in:
+```shell
+docker pull mey5634/diffsync:v1
+docker run -p 129.21.37.42:1070:1070 -it mey5634/diffsync:v1
+cd /home/proj/distsys/src/py
+python3 server.py -e PROD
+```

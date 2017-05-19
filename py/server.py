@@ -17,8 +17,8 @@ import conf
 import argparse
 from random import choice
 from string import ascii_lowercase, digits
-import logging
-import datetime
+# import logging
+# import datetime
 
 
 RAND_URL_LENGTH = 5
@@ -41,8 +41,6 @@ def index():
 
 @get('/w/<url:re:.+>')
 def doc(url):
-    # request.environ['PATH_INFO'] = '/'.join(request.environ['PATH_INFO'].split('/')[:3])
-    # print('made:', request.url)
     return static_file('index.html', root="../")
 
 @get("/static/css/<filepath:re:.*\.css>")
@@ -77,7 +75,6 @@ def socks(url=None):
 
 @get("<url:re:.+>")
 def catch_all_route(url):
-    # print("got: ", request.environ['PATH_INFO'])
     redirect('/')
 
 if __name__ == "__main__":

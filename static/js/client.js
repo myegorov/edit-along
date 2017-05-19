@@ -1,10 +1,8 @@
 var Client = (function () {
 
-  var conf = Conf;
-
-  var awaitResponse = false; // is client waiting on server to respond?
-
-  var client_id = null; // to be set by Server
+  var conf = Conf,
+      awaitResponse = false, // is client waiting on server to respond?
+      client_id = null; // to be set by Server
 
   /* parse client's URL */
   var parseURI = function() {
@@ -32,9 +30,8 @@ var Client = (function () {
   var sock = function() {
     var env = lookupEnv();
     var parsed = parseURI();
-    var parts = parsed.pathname.split('/')
-    var doc = parsed.pathname.endsWith('/') ? parts[parts.length-2] : parts[parts.length-1]
-    // console.log("conf: " + JSON.stringify(conf));
+    var parts = parsed.pathname.split('/');
+    var doc = parsed.pathname.endsWith('/') ? parts[parts.length-2] : parts[parts.length-1];
     var socket_url = 'ws://'+ conf.host[env] + ':' + conf.port[env] + '/websocket/' + doc;
     return socket_url;
   };

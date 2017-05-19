@@ -8,7 +8,7 @@ var Tabula = (function() {
 
   var shadow = {
     'str': '',       // contents of document
-    'clock': [-1,-1] // vector clock: <CLIENT_CLOCK, SERVER_CLOCK>
+    'clock': [-1,-1] // initialize vector clock: <CLIENT_CLOCK, SERVER_CLOCK>
   };
 
   return {

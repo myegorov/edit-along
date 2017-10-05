@@ -5,12 +5,12 @@ Server config
 DEBUG = True
 
 HOST = {
-        'DEV': '127.0.0.1',
-        'PROD': '172.17.0.6' # ip exposed by Docker
+        'DEV': '0.0.0.0',
+        'PROD': '0.0.0.0'
        }
 
 PORT = {
-        'DEV': 8080,
+        'DEV': 1070,
         'PROD': 1070
        }
 

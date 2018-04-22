@@ -39,7 +39,8 @@ Copy/paste the generated url in a new tab or two.
 
 This repository is licensed under the 
 [MIT license](https://opensource.org/licenses/MIT), except for
-`./py/diff_match_patch.py` which is licensed under 
+`./py/diff_match_patch.py` and `./static/js/diff_match_patch.js` 
+which are licensed under 
 [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0).
 The default `Match_Threshold` has been modified from the original 
 `diff_match_patch.py` 
